@@ -1,0 +1,500 @@
+<!doctype html>
+<html>
+	<head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+		<title>Non-visual Card Sorting</title>
+		<style>
+			body {
+				margin: 10px;
+				background-color: #fff;
+				overflow: hidden;
+			}
+            
+            #textField {
+                position: relative;
+                
+            }
+
+        
+        </style>
+        
+
+	</head>
+	<body onload="main()">
+        <!-- <script src="responsivevoice.js"></script> --> <!-- LOCAL VERSION -->
+        <script src="https://code.responsivevoice.org/responsivevoice.js"></script>  <!-- REMOTE VERSION -->
+
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+
+        <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+
+        <script type="text/javascript">
+            // GLOBAL VARS
+            var tags = 
+                {
+                    '00171801301567': {card:'Não consigo executar um gesto no ecrã.', challenge: 'C1'},
+                    '00171801278226': {card:'Não sei que gestos posso executar em cada aplicação.', challenge: 'C2'},
+                    '00171801276636': {card:'Fico perdido durante a utilização de uma aplicação.', challenge: 'C3'},
+                    '00171801274260': {card:'Não consigo navegar em listas.', challenge: 'C4'},
+                    '00171801277847': {card:'Selecciono botões acidentalmente.', challenge: 'C5'},
+                    '00171801303323': {card:'O telemóvel não responde às minhas acções.', challenge: 'C6'},
+                    '00171801303065': {card:'O leitor de ecrã é lento.', challenge: 'C7'},
+                    '00171801296094': {card:'Não percebo o significado de um som.', challenge: 'C8'},
+                    '00171801276593': {card:'Sou lento a escrever texto.', challenge: 'C9'},
+                    '00171801303481': {card:'Não consigo modificar texto já escrito.', challenge: 'C10'},
+                    '00004511229486': {card:'Não consigo fazer lóguin em sites ou aplicações.', challenge: 'C11'},
+                    '00004511229396': {card:'Não consigo encontrar a opção desejada.', challenge: 'C12'},
+                    '00004511229525': {card:'Descrições desadequadas ou inexistentes em botões ou imagens.', challenge: 'C13'}
+                };
+            
+            var input;
+            var card;
+            var tag;
+            var challenge;
+            var timer = 0;
+
+            
+            var defaultVoice = "Portuguese Female";
+            var currentVoice = defaultVoice;
+
+            var state = 0;
+            
+            function main() {
+                input = document.getElementById('textField');
+                tag = document.getElementById('rfidTag');
+                card = document.getElementById('cardField');
+                challenge = document.getElementById('challenge');
+                
+                updateTagList();
+
+                var voicelist = responsiveVoice.getVoices();
+                var voiceSelect=document.getElementById('voiceSelect');
+
+                for(element of voicelist)
+                {
+                    var voiceOpt = document.createElement("option");
+                    voiceOpt.value= element.name;
+                    voiceOpt.innerHTML = element.name; // whatever property it has
+                    // then append it to the select element
+                    voiceSelect.appendChild(voiceOpt);
+                }
+
+
+                voiceSelect.value = defaultVoice;
+
+                input.addEventListener('input', 
+                    // OnChange Event
+                    function() {                        
+                        // stop previous timer
+                        if(timer != 0) {
+                            clearTimeout(timer);
+                        }
+                        
+                        // start timer
+                        timer = setTimeout(readCard, 500);
+                    }
+                );   
+            }
+            
+            function readCard() {
+                
+                // read RFID tag value
+                responsiveVoice.cancel(); // stops tts
+                
+                // search RFID tag value
+                var ret = searchTag(input.value);
+                if(!ret) {
+                    ret = ['desconhecido', 'desconhecido'];
+                    tag.innerHTML = ""; // updates label
+
+                    showAddTag(input.value);
+                }else{
+                    // set card value
+                    tag.innerHTML = input.value; // updates label
+                    challenge.innerHTML = ret[0]; // display challenge #
+                    card.innerHTML = ret[1]; // display card
+                    responsiveVoice.speak(ret[1], currentVoice, {pitch: 1}); // starts tts
+                    
+                    
+                }
+                input.value = "";
+            }
+            
+            function searchTag(value) {               
+                if(value in tags){
+                    var tag = tags[value];
+                    logScan({id:value,text:tag.card,challenge:tag.challenge}); //data logging
+                    return [tag.challenge, tag.card];
+                }
+                //tag not found - add it
+                return null;
+            }
+
+            function showAddTag(value){
+                hideAll();
+                document.getElementsByClassName('register-new')[0].style.display = 'block';
+                
+                updateTagList();
+
+                let rfid = document.getElementById('rfid');
+                rfid.disabled = false;
+
+                let tts = document.getElementById('texttospeak');
+
+
+                if(value){
+                    rfid.disabled = true;
+                    rfid.value = value;
+                    tts.focus();
+                }else{
+                    console.log("giving focus");
+                    rfid.value = "";
+                    rfid.focus();
+                }
+            }
+
+            function wrapTD(element){
+                var td = document.createElement('td');
+                td.appendChild(element);
+                return td;
+            }
+
+            function wrapTR(elements){
+                var tr = document.createElement('tr');
+                for(element of elements){
+                    tr.appendChild(element);
+                }
+                return tr;
+            }
+
+            function updateTagList(){
+                var tbdy = document.getElementById('tagbody');
+                tbdy.innerHTML = "";
+
+                elements = [];
+                var rfid = document.createElement('input');
+                rfid.id = "rfid";
+                rfid.type = "text";
+                rfid.autofocus = true;
+                rfid.className = "form-control";
+                elements.push(wrapTD(rfid));
+                
+
+                var tts = document.createElement('input');
+                tts.id = "texttospeak";
+                tts.type = "text";
+                tts.className = "form-control";
+                elements.push(wrapTD(tts));
+
+            
+                var add = document.createElement('a');
+                add.onclick = function() { addTag(); };
+                add.setAttribute('class', 'btn btn-primary');
+                add.setAttribute("href", '#');
+
+                add.appendChild(document.createTextNode("Add Tag"));
+                elements.push(wrapTD(add));
+                
+
+                tbdy.appendChild(wrapTR(elements));
+
+                var index = 0;
+                for (var key in tags) {
+                    var tag = tags[key];
+
+                    var tr = document.createElement('tr');
+                    var cols = [key,tag.card];
+                    for( var col of cols){
+                        tr.appendChild(wrapTD(document.createTextNode(col)));
+                    }
+
+                    var remove = document.createElement('a');
+                    remove.setAttribute('class', 'btn btn-danger');
+                    remove.setAttribute("href", `#`);
+                    remove.onclick = (function(key) {return function() {removeTag(key);}})(key);
+                    remove.appendChild(document.createTextNode("Remove"));
+
+                    tr.appendChild(wrapTD(remove));
+
+                    tbdy.appendChild(tr);
+                    index++;
+                }
+
+            }
+
+            function showScanner(){
+                hideAll();       
+                document.getElementsByClassName('read-aloud')[0].style.display = 'block';
+               
+                
+                let rfid = document.getElementById('rfid');
+                rfid.value = "";
+
+                let tts = document.getElementById('texttospeak');
+                tts.value =""
+
+                let input = document.getElementById('textField');
+                input.focus();
+            }
+
+            function hideAll(){
+                document.getElementsByClassName('read-aloud')[0].style.display = 'none';
+                document.getElementsByClassName('register-new')[0].style.display = 'none';
+                document.getElementsByClassName('tag-controls')[0].style.display = 'none';
+                document.getElementsByClassName('export-data')[0].style.display = 'none';
+                document.getElementsByClassName('about-page')[0].style.display = 'none';
+            }
+
+            function showExportData(){
+                hideAll();
+                document.getElementsByClassName('export-data')[0].style.display = 'block';
+            }
+
+
+            function showImportTags(){
+                hideAll();
+                document.getElementsByClassName('tag-controls')[0].style.display = 'block';
+            }
+            
+
+           function showAbout(){
+                hideAll();
+                document.getElementsByClassName('about-page')[0].style.display = 'block';
+            }
+
+            function removeTag(tag){
+                console.log("Remove",tag);
+                delete tags[tag];
+                updateTagList();
+            }
+
+
+            function addTag(){
+                let rfid = document.getElementById('rfid');
+                let texttospeed = document.getElementById('texttospeak');
+                
+                if(!rfid.value || rfid.value.length < 1 || !texttospeed.value || texttospeed.value.length < 1)
+                    return;
+
+                let cNum = Object.keys(tags).length
+                tags[rfid.value] = {card:texttospeed.value, challenge: `C${(cNum+1)}`};                
+                
+                updateTagList();
+
+            }
+
+            function changedVoice(){
+                var voiceSelect=document.getElementById('voiceSelect');
+                currentVoice = voiceSelect.value;
+            }
+
+            var logfile = [];
+            function logScan(tag){
+                tag['timestamp']=new Date().getTime();
+                logfile.push(`${tag.timestamp},${tag.id},${tag.challenge},"${tag.text}"`);
+                console.log(logfile);
+            }
+
+            function exportLogfile(){
+                let csvContent = "data:text/csv;charset=utf-8,";
+        
+                for(log of logfile){
+                    csvContent += log + "\r\n";
+                }
+
+                var encodedUri = encodeURI(csvContent);
+                var link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", `card_sorting_logfile_${new Date().getTime()}.csv`);
+                document.body.appendChild(link); // Required for FF
+
+                link.click();
+            }
+
+            function exportTags(){
+                
+                let jsonContent = 'data:application/json;charset=utf-8,';
+                jsonContent += JSON.stringify(tags);
+
+                var encodedUri = encodeURI(jsonContent);
+                var link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", `card_sorting_rfid_tags_${new Date().getTime()}.json`);
+                document.body.appendChild(link); // Required for FF
+
+                link.click();
+            }
+
+            function importTags(){
+                
+                var file = document.getElementById("tagFile").files[0];
+                if (file) {
+                    var reader = new FileReader();
+                    reader.readAsText(file, "UTF-8");
+                    reader.onload = function (evt) {
+                        let data = evt.target.result;
+                        tags = JSON.parse(data);
+
+                        showAddTag();
+                    }
+                    
+                }
+
+            }
+
+
+            function nav(id){
+                lastState = state;
+                state = id;
+
+                if(lastState == state)
+                    return; //no change
+
+                switch(id){
+                    case 0: //scanner
+                        showScanner();
+                    break;
+                    case 1: // add tag
+                        showAddTag();
+                        break;
+                    case 2:
+                    showImportTags();
+                        break;
+                    case 3:
+                    showExportData();
+                        break;
+                    case 4:
+                    showAbout();
+                        break;
+                }
+            }
+            
+       
+
+
+        </script>
+
+        <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+
+            
+            <a class="navbar-brand" href="#">RFID Card Sorting</a>
+            <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav">
+                <li class="nav-item active">
+                <a class="nav-link" href="#scanner" onclick="nav(0)">Scanner</a>
+                </li>
+                <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownMenuLink" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                          Tags
+                        </a>
+                        <div class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
+                          <a class="dropdown-item" href="#addtag" onclick="nav(1)">Edit</a>
+                          <a class="dropdown-item" href="#importtags" onclick="nav(2)">Import/Export</a>
+                        </div>
+                      </li>
+                <li class="nav-item">
+                <a class="nav-link" href="#exportdata" onclick="nav(3)">Export Data</a>
+                </li>
+                <li class="nav-item">
+                <a class="nav-link" href="#about" onclick="nav(4)">About</a>
+                </li>
+            </ul>
+            </div>
+        </nav>
+
+        <div class="col-12 container">
+
+            <div class="col-md-6 read-aloud">
+                <h2>Scanner</h2>
+                <div class="form-group">
+                    <label for="textField">RFID Tag: <span id='rfidTag'></span></label>
+                    <input class="form-control" id='textField' type="text" autofocus />
+                </div>
+                <div class="form-group">
+                        <label for="voiceSelect">Voice:</label>
+                        <select class="form-control" id='voiceSelect' onchange="changedVoice()"></select>
+                </div>
+                <div class="form-group">
+                <label for="challenge">Challenge:</label> <span id='challenge'></span>
+                </div>
+                <div class="form-group">
+                    <label for="cardField">Card:</label> <span id='cardField'></span>
+                </div>
+            </div>
+
+            <div class="register-new" style="display:none;">
+                <h2>Edit Tags</h2>
+                <div class="row">
+                    <div class="col-md-8">
+                        <table class="table table-sm">
+                            <thead>
+                            <tr>
+                                <th scope="col">RFID</th>
+                                <th scope="col">Card</th>
+                                <th scope="col"></th>
+                            </tr>
+                            </thead>
+                            <tbody id="tagbody"></tbody>
+                        </table>
+                    </div>
+                    <!-- <div class="col-md-4 addnew">
+                        <div class="form-group">
+                        <label for="rfid">RFID</label>
+                        <input class="form-control" type="text" id="rfid" name="rfid" autofocus>
+                        </div>
+                        <div class="form-group">
+                        <label for="texttospeak">Card</label>
+                        <textarea class="form-control" id="texttospeak" name="texttospeak" rows="3"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <button class="btn btn-primary" type="button" id="addtag" name="addtag" onclick="addTag()">Add Tag</button>
+                        </div>
+                    </div> -->
+                </div>
+            </div>
+            <div class="tag-controls" style="display:none">
+                    <div class="col-md-6">
+
+                <h2>Import/Export Tags</h2>
+                <div class="form-group">
+                        <div class="custom-file">
+                                <input type="file" class="custom-file-input" id="tagFile" onchange="importTags()" accept=".json,.JSON">
+                                <label class="custom-file-label" for="tagFile">Import Tags (.JSON)</label>
+                        </div>
+                </div>
+                <p>-- OR --</p>
+                <div class="form-group">
+                        <button class="btn btn-primary" type="button" id="exportTags" name="exportTags" onclick="exportTags()">Export Tags</button>
+                </div>
+                </div>
+            </div>
+            <div class="export-data" style="display:none">
+                <h2>Export Data</h2>
+                <p>Log file containing the timestamp, rfid, challenge and text for each scan.</p>
+                <div class="form-group">
+                    <button class="btn btn-primary" type="button" id="exportdata" name="exportdata" onclick="exportLogfile()">Export CSV</button>
+                </div>
+            </div>
+            <div class="about-page" style="display:none">
+                <h2>About</h2>
+                <p>Some text about the project, links to the paper and source material.</p>
+            </div>
+        </div>
+        
+        <script type="text/javascript">
+            $('.nav-link').click(function(){
+            $('.nav-link').parent().removeClass('active');
+                $(this).parent().addClass('active');
+            });
+
+        </script> 
+	</body>
+</html>
